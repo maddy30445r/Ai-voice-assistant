@@ -1,0 +1,44 @@
+name: ai_voice_assistant
+description: Flutter AI Voice Assistant with Gemini integration
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.2
+  speech_to_text: ^7.3.0
+  permission_handler: ^12.0.1
+  google_generative_ai: ^0.4.7
+  flutter_tts: ^4.2.3
+
+  url_launcher: ^6.1.12
+  android_intent_plus: ^6.0.0
+  flutter_contacts: ^1.1.9+2
+  flutter_phone_direct_caller: ^2.2.1
+  porcupine_flutter: ^3.0.5
+
+  
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    # 👇 Add all wake word files or other static assets here
+    - assets/Hey-Panda_en_android_v3_0_0.ppn
+    # if you have an iOS keyword file, include it too
+    # - assets/Hey-Panda_en_ios_v3_0_0.ppn
+    # optionally add other assets later, e.g.:
+    # - assets/sounds/start_tone.wav
+    # - assets/sounds/end_tone.wav
+
+
+

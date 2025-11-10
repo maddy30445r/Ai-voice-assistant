@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Ai Voice Assistant</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>ai_voice_assistant</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>NSSpeechRecognitionUsageDescription</key>
+<string>This app uses speech recognition to convert your voice commands into text so that the AI assistant can understand and process your requests to open apps and answer questions.</string>
+
+<key>NSMicrophoneUsageDescription</key>
+<string>This app needs microphone access to listen to your voice commands and questions so that the AI assistant can respond appropriately.</string>
+
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>This app may request location access to provide location-based responses and services.</string>
+
+<key>NSContactsUsageDescription</key>
+<string>This app may request contacts access to help you interact with your contacts through voice commands.</string>
+
+<key>NSCalendarsUsageDescription</key>
+<string>This app may request calendar access to help you manage your schedule through voice commands.</string>
+
+<key>NSRemindersUsageDescription</key>
+<string>This app may request reminders access to help you create and manage reminders through voice commands.</string>
+
+<key>NSContactsUsageDescription</key>
+<string>This app needs access to contacts to send messages and dial by name.</string>
+
+</dict>
+</plist>
