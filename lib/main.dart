@@ -14,12 +14,16 @@ import 'package:porcupine_flutter/porcupine_manager.dart';
 import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+void main() async {
+  await dotenv.load(fileName: ".env");
   runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -34,6 +38,8 @@ class MyApp extends StatelessWidget {
 }
 
 class VoiceAssistantScreen extends StatefulWidget {
+  const VoiceAssistantScreen({super.key});
+
   @override
   _VoiceAssistantScreenState createState() {
     return _VoiceAssistantScreenState();
@@ -57,13 +63,12 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
   double _confidenceLevel = 0;
   String _response = "";
   bool _isProcessing = false;
-  String _text = "Say 'Hey Maddy' to wake me up...";
+  String _text = "Say 'Hey Panda' to wake me up...";
   bool _wakeHandling = false; // prevents re-entrancy on wake callback
   DateTime? _lastWake;
   final Duration _wakeDebounce = Duration(milliseconds: 700); // tune if needed
 
-  late final String GEMINI_API_KEY =
-      const String.fromEnvironment('GEMINI_API_KEY');
+  final String GEMINI_API_KEY = dotenv.env['GEMINI_API_KEY'] ?? '';
 
   // Action map (whitelist)
   late final Map<String, ActionHandler> _actionMap;
@@ -276,6 +281,7 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
   @override
   void initState() {
     super.initState();
+    // print('$GEMINI_API_KEY dkdieijei');
 
     _setup();
 
@@ -531,7 +537,7 @@ Rules:
         _response = msg;
         _isProcessing = false;
       });
-      
+
       await _flutterTts.speak(msg);
       return;
     }
@@ -539,6 +545,8 @@ Rules:
     String responseText = response.text ?? "";
     responseText =
         responseText.replaceAll('```json', '').replaceAll('```', '').trim();
+
+    print(responseText);
 
     dynamic jsonResponse;
     try {
@@ -554,6 +562,7 @@ Rules:
     }
 
     final String action = (jsonResponse['action'] ?? 'conversation').toString();
+    print("Actio he haiiii $action");
     final Map<String, dynamic> params =
         Map<String, dynamic>.from(jsonResponse['params'] ?? {});
     final String modelSpokenResponse =

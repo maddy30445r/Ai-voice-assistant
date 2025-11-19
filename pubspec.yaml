@@ -22,6 +22,8 @@ dependencies:
   flutter_contacts: ^1.1.9+2
   flutter_phone_direct_caller: ^2.2.1
   porcupine_flutter: ^3.0.5
+  flutter_dotenv: ^6.0.0
+
 
   
 dev_dependencies:
@@ -32,6 +34,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - .env
     # 👇 Add all wake word files or other static assets here
     - assets/Hey-Panda_en_android_v3_0_0.ppn
     # if you have an iOS keyword file, include it too
