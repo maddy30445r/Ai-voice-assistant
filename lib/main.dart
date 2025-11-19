@@ -58,13 +58,26 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
   String _response = "";
   bool _isProcessing = false;
   String _text = "Say 'Hey Maddy' to wake me up...";
+  bool _wakeHandling = false; // prevents re-entrancy on wake callback
+  DateTime? _lastWake;
+  final Duration _wakeDebounce = Duration(milliseconds: 700); // tune if needed
 
-  // Replace with your Gemini API key
-  static const String GEMINI_API_KEY =
-      "AIzaSyAEUlG-c5u4w5mXBxFPu8h23vQKy6QPORQ";
+  late final String GEMINI_API_KEY =
+      const String.fromEnvironment('GEMINI_API_KEY');
 
   // Action map (whitelist)
   late final Map<String, ActionHandler> _actionMap;
+
+  Future<void> _requestAndInitWake() async {
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) {
+      setState(() {
+        _text = "Microphone permission required for wake word.";
+      });
+      return;
+    }
+    await _initWakeWord();
+  }
 
   Future<void> _initWakeWord() async {
     try {
@@ -81,35 +94,75 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
           );
       try {
         await _porcupineManager!.start();
+        setState(() => _text = "Listening for wake word: Hey Maddy...");
       } on PorcupineException catch (ex) {
-        print(ex);
-        // deal with either audio exception
+        print("Porcupine start failed: $ex");
+        setState(() => _text = "Wake word engine failed to start.");
       }
     } catch (e) {
+      print("Wake word init error: $e");
       setState(() {
         _text = "Wake word init failed: $e";
       });
     }
   }
 
+  // void _wakeWordCallback(int keywordIndex) async {
+  //   try {
+  //     // Immediately stop porcupine so the mic is free for speech_to_text
+  //     await _porcupineManager?.stop();
+  //   } catch (e) {
+  //     print("Error stopping porcupine: $e");
+  //   }
+
+  //   setState(() {
+  //     _text = "Wake word detected — listening...";
+  //   });
+
+  //   // Short delay to ensure audio device is released
+  //   // await Future.delayed(Duration(milliseconds: 200));
+
+  //   // Start STT (this requests mic permission inside _startListening)
+  //   if (!_isListening && _speechEnabled) {
+  //     _startListening();
+  //   }
+  // }
   void _wakeWordCallback(int keywordIndex) async {
-    try {
-      // Immediately stop porcupine so the mic is free for speech_to_text
-      await _porcupineManager?.stop();
-    } catch (e) {
-      print("Error stopping porcupine: $e");
+    // debounce
+    final now = DateTime.now();
+    if (_lastWake != null && now.difference(_lastWake!) < _wakeDebounce) {
+      print("Wake ignored (debounced)");
+      return;
     }
+    _lastWake = now;
 
-    setState(() {
-      _text = "Wake word detected — listening...";
-    });
+    if (_wakeHandling) {
+      print("Already handling a wake");
+      return;
+    }
+    _wakeHandling = true;
 
-    // Short delay to ensure audio device is released
-    await Future.delayed(Duration(milliseconds: 200));
+    try {
+      // stop porcupine and give audio device a small moment to release
+      try {
+        await _porcupineManager?.stop();
+      } catch (e) {
+        print("Error stopping porcupine: $e");
+      }
 
-    // Start STT (this requests mic permission inside _startListening)
-    if (!_isListening && _speechEnabled) {
-      _startListening();
+      // Very small delay helps the audio device release on some devices
+      await Future.delayed(Duration(milliseconds: 200));
+
+      setState(() {
+        _text = "Wake word detected — listening...";
+      });
+
+      if (!_isListening && _speechEnabled) {
+        _startListening();
+      }
+    } finally {
+      // we don't immediately allow new wake handling; let _restartWakeWord reset it
+      _wakeHandling = false;
     }
   }
 
@@ -224,7 +277,8 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
     initializeSpeech();
     initializeTTS();
     initializeGemini();
-    _initWakeWord();
+    // _initWakeWord();
+    _requestAndInitWake();
 
     _animationController = AnimationController(
       duration: const Duration(seconds: 1),
@@ -252,9 +306,10 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
 
   void initializeSpeech() async {
     _speechEnabled = await _speech.initialize(
-        onStatus: _statusListener,
-        onError: (error) => print('Speech error: $error'),
-        debugLogging: true);
+      onStatus: _statusListener,
+      onError: (error) => print('Speech error: $error'),
+      // debugLogging: true
+    );
     setState(() {});
   }
 
@@ -273,33 +328,66 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
     );
   }
 
-  void _startListening() async {
+  Future<void> _startListening() async {
     if (!_speechEnabled) return;
-    await Permission.microphone.request();
 
-    await _speech.listen(
-      onResult: _onSpeechResult,
+    final micStatus = await Permission.microphone.status;
+    if (!micStatus.isGranted) {
+      final newStatus = await Permission.microphone.request();
+      if (!newStatus.isGranted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Microphone permission denied')));
+        return;
+      }
+    }
 
-      listenOptions: SpeechListenOptions(
-          cancelOnError: true,
-          partialResults: true,
-          listenMode: ListenMode.dictation),
-      pauseFor: const Duration(seconds: 5), // stop after 2s of silence
-      listenFor: const Duration(seconds: 30), // total limit
-      localeId: 'en_IN',
-      onSoundLevelChange: (level) {
-        // optional: show mic level for UX feedback
-        // print('sound level: $level');
-      },
-      cancelOnError: true,
-    );
+    try {
+      await _speech.listen(
+        onResult: _onSpeechResult,
+        listenOptions: SpeechListenOptions(
+            partialResults: true,
+            listenMode: ListenMode.dictation,
+            cancelOnError: true),
+        pauseFor: const Duration(seconds: 6),
+        listenFor: const Duration(seconds: 15),
+        onSoundLevelChange: (level) {},
+      );
 
-    setState(() {
-      _isListening = true;
-      _wordsSpoken = "";
-      _confidenceLevel = 0;
-    });
+      setState(() {
+        _isListening = true;
+        _wordsSpoken = "";
+        _confidenceLevel = 0;
+      });
+    } catch (e) {
+      print("Error starting STT: $e");
+      setState(() => _isListening = false);
+    }
   }
+
+  // void _startListening() async {
+  //   if (!_speechEnabled) return;
+  //   await Permission.microphone.request();
+
+  //   await _speech.listen(
+  //     onResult: _onSpeechResult,
+  //     listenOptions: SpeechListenOptions(
+  //         partialResults: true, listenMode: ListenMode.dictation),
+  //     pauseFor: const Duration(seconds: 4), // stop after 2s of silence
+  //     listenFor: const Duration(seconds: 15), // total limit
+  //     // localeId: 'en_IN',
+  //     onSoundLevelChange: (level) {
+  //       // optional: show mic level for UX feedback
+  //       // print('sound level: $level');
+  //     },
+  //     // cancelOnError: true,
+  //   );
+
+  //   setState(() {
+  //     _isListening = true;
+  //     _wordsSpoken = "";
+  //     _confidenceLevel = 0;
+  //   });
+  // }
 
   void _stopListening() async {
     await _speech.stop();
@@ -307,12 +395,12 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
       _isListening = false;
     });
 
-    if (_wordsSpoken.isNotEmpty) {
-      await _processVoiceCommand(_wordsSpoken);
-    }
+    // if (_wordsSpoken.isNotEmpty) {
+    //   await _processVoiceCommand(_wordsSpoken);
+    // }
   }
 
-  void _statusListener(String status) {
+  void _statusListener(String status) async {
     print('Speech status: $status');
 
     if (status == 'notListening' && _isListening) {
@@ -322,6 +410,7 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
       if (_wordsSpoken.isNotEmpty) {
         _processVoiceCommand(_wordsSpoken); // Call your Gemini API here
       }
+      await Future.delayed(Duration(milliseconds: 150));
 
       _restartWakeWord(); // Resume wake word detection
     }
@@ -331,21 +420,45 @@ class _VoiceAssistantScreenState extends State<VoiceAssistantScreen>
     setState(() {
       _wordsSpoken = result.recognizedWords;
       _confidenceLevel = result.confidence;
-
-      if (result.finalResult) {
-        print("rul hgya chdj");
-        _speech.stop();
-        _restartWakeWord();
-      }
     });
+
+    // handle final result asynchronously
+    if (result.finalResult) {
+      _onFinalSpeechResult();
+    }
+  }
+
+  Future<void> _onFinalSpeechResult() async {
+    try {
+      await _speech.stop();
+    } catch (e) {
+      print("Error stopping STT after final result: $e");
+    }
+
+    // // process the command (this will call Gemini and perform actions)
+    // if (_wordsSpoken.isNotEmpty) {
+    //   await _processVoiceCommand(_wordsSpoken);
+    // }
+
+    // // restart wake word detection (with small delay)
+    // await Future.delayed(Duration(milliseconds: 150));
+    // await _restartWakeWord();
   }
 
   Future<void> _restartWakeWord() async {
-    await _porcupineManager?.start();
-    print("jfnjfebfef");
-    setState(() {
-      _text = "Listening for wake word: Hey Maddy...";
-    });
+    try {
+      // short delay to avoid immediate restart collisions
+      await Future.delayed(Duration(milliseconds: 200));
+      await _porcupineManager?.start();
+      setState(() {
+        _text = "Listening for wake word: Hey Maddy...";
+      });
+    } catch (e) {
+      print("Failed to restart porcupine: $e");
+      setState(() {
+        _text = "Wake word engine unavailable.";
+      });
+    }
   }
 
   // ----------------------------
@@ -725,6 +838,12 @@ Rules:
   @override
   void dispose() {
     _animationController.dispose();
+    try {
+      _porcupineManager?.stop();
+      _porcupineManager?.delete();
+    } catch (e) {
+      print("Error disposing porcupine: $e");
+    }
     super.dispose();
   }
 
